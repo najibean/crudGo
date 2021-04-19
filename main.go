@@ -1,10 +1,7 @@
 package main
 
-import (
-	"fmt"
-)
+import "github.com/najibean/crudGo/app"
 
 func main() {
-	fmt.Println("najib")
-	mux
+	app.Run()
 }
