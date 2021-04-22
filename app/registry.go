@@ -3,7 +3,7 @@ package app
 import "github.com/najibean/crudGo/app/models"
 
 type Model struct {
-	Model interface {}
+	Model interface{}
 }
 
 func RegisterModels() []Model {
@@ -14,6 +14,10 @@ func RegisterModels() []Model {
 		{Model: models.ProductImage{}},
 		{Model: models.Section{}},
 		{Model: models.Category{}},
-
+		{Model: models.Order{}},
+		{Model: models.OrderItem{}},
+		{Model: models.OrderCustomer{}},
+		{Model: models.Shipment{}},
+		{Model: models.Payment{}},
 	}
 }
