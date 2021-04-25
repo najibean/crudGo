@@ -1,6 +1,7 @@
 package app
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,36 +10,36 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"github.com/najibean/crudGo/database/seeders"
+	"github.com/urfave/cli"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 type Server struct {
-	DB 		*gorm.DB
-	Router	*mux.Router
+	DB     *gorm.DB
+	Router *mux.Router
 }
 
 type AppConfig struct {
-	Name	string
-	Env		string
-	Port 	string
+	Name string
+	Env  string
+	Port string
 }
 
 type DBConfig struct {
-	DBHost		string
-	DBUser		string
-	DBPassword	string
-	DBName		string
-	DBPort		string
+	DBHost     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+	DBPort     string
 }
-
 
 func (server *Server) Initialize(appConfig AppConfig, dbConfig DBConfig) {
 	fmt.Println("Welcome to " + appConfig.Name)
 
-	server.initializeDB(dbConfig)
+	// server.initializeDB(dbConfig)
 	server.initializeRoutes()
-	seeders.DBSeed(server.DB)
+	// seeders.DBSeed(server.DB)
 }
 
 // menjalankan server port
@@ -47,10 +48,10 @@ func (server *Server) Run(port string) {
 	log.Fatal(http.ListenAndServe(port, server.Router))
 }
 
-func ( server *Server) initializeDB(dbConfig DBConfig) {
+func (server *Server) initializeDB(dbConfig DBConfig) {
 	var err error
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Jakarta",
-						dbConfig.DBHost, dbConfig.DBUser, dbConfig.DBPassword, dbConfig.DBName, dbConfig.DBPort)
+		dbConfig.DBHost, dbConfig.DBUser, dbConfig.DBPassword, dbConfig.DBName, dbConfig.DBPort)
 	server.DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
 	if err != nil {
@@ -59,8 +60,11 @@ func ( server *Server) initializeDB(dbConfig DBConfig) {
 		fmt.Println("Connected to database postgres")
 	}
 
+}
+
+func (server *Server) dbMigrate() {
 	for _, model := range RegisterModels() {
-		err = server.DB.Debug().AutoMigrate(model.Model)
+		err := server.DB.Debug().AutoMigrate(model.Model)
 
 		if err != nil {
 			log.Fatal(err)
@@ -68,8 +72,36 @@ func ( server *Server) initializeDB(dbConfig DBConfig) {
 	}
 
 	fmt.Println("database migrated successfully")
+}
 
+func (server *Server) initCommands(appConfig AppConfig, dbConfig DBConfig) {
+	server.initializeDB(dbConfig)
 
+	cmdApp := cli.NewApp()
+	cmdApp.Commands = []cli.Command{
+		{
+			Name: "db:migrate",
+			Action: func(c *cli.Context) error {
+				server.dbMigrate()
+				return nil
+			},
+		},
+		{
+			Name: "db:seed",
+			Action: func(c *cli.Context) error {
+				err := seeders.DBSeed(server.DB)
+				if err != nil {
+					log.Fatal(err)
+				}
+				return nil
+			},
+		},
+	}
+
+	err := cmdApp.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // membuat func nilai default .env jika data didalamnya kosong. Karena di Go jika data hilang, server port masih jalan
@@ -85,7 +117,6 @@ func Run() {
 	var server = Server{}
 	var appConfig = AppConfig{}
 	var dbConfig = DBConfig{}
-
 
 	err := godotenv.Load()
 	if err != nil {
@@ -107,6 +138,12 @@ func Run() {
 	dbConfig.DBName = getEnv("DB_NAME", "rajaKado")
 	dbConfig.DBPort = getEnv("DB_PORT", "5432")
 
-	server.Initialize(appConfig, dbConfig)
-	server.Run(":" + appConfig.Port)
+	flag.Parse()
+	arg := flag.Arg(0)
+	if arg != "" {
+		server.initCommands(appConfig, dbConfig)
+	} else {
+		server.Initialize(appConfig, dbConfig)
+		server.Run(":" + appConfig.Port)
+	}
 }
